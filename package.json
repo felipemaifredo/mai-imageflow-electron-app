@@ -1,0 +1,44 @@
+{
+  "name": "mai-imageflow",
+  "version": "1.0.0",
+  "description": "Mai ImageFlow - Aplicativo Desktop de Processamento de Imagens",
+  "main": "./out/main/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "start": "electron-vite preview",
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
+    "postinstall": "electron-builder install-app-deps",
+    "build:unpack": "npm run build && electron-builder --dir",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "icon-gen": "^5.0.0",
+    "lucide-react": "^0.395.0",
+    "png-to-ico": "^3.0.1",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "sharp": "^0.33.4",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@types/node": "^20.14.9",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^39.2.6",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6"
+  }
+}

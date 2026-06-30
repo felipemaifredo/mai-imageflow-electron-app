@@ -1,0 +1,185 @@
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.topControls {
+  height: 48px;
+  background: var(--surface-glass);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--border-glass);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.leftControls {
+  display: flex;
+  gap: 8px;
+}
+
+.rightControls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.controlButton {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--transition-fast);
+}
+
+.controlButton:hover {
+  background: var(--surface-hover);
+}
+
+.controlButton:active {
+  background: var(--surface-active);
+}
+
+.activeButton {
+  background: var(--accent-transparent);
+  border-color: var(--accent);
+  color: var(--accent-hover);
+}
+
+.viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+}
+
+.viewportPanning {
+  cursor: grabbing;
+}
+
+/* Background classes */
+.bgCheckered {
+  background-color: #1a1a1f;
+  background-image: 
+    linear-gradient(45deg, #131316 25%, transparent 25%),
+    linear-gradient(-45deg, #131316 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #131316 75%),
+    linear-gradient(-45deg, transparent 75%, #131316 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+}
+
+.bgDark {
+  background-color: #0c0c0e;
+}
+
+.bgLight {
+  background-color: #f1f5f9;
+}
+
+/* Canvas/Image wrapper for transforms */
+.canvasWrapper {
+  position: relative;
+  user-select: none;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.previewImage {
+  max-width: 80vw;
+  max-height: 70vh;
+  object-fit: contain;
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+}
+
+.bgLight .previewImage {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  gap: 12px;
+}
+
+.emptyTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.zoomIndicator {
+  font-size: 11px;
+  color: var(--text-secondary);
+  min-width: 48px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.infoBar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(26, 26, 30, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-full);
+  padding: 6px 16px;
+  display: flex;
+  gap: 16px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.infoItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.controlSelect {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+}
+
+.controlSelect option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+

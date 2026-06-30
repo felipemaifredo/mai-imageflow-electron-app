@@ -1,0 +1,10 @@
+appId: com.mai.imageflow
+productName: Mai ImageFlow
+directories:
+  output: release
+files:
+  - out/**/*
+mac:
+  icon: assets/icns/logo_Original.icns
+win:
+  icon: assets/ico/logo_Sa_da_2.ico

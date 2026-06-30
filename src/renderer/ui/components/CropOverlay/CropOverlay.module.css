@@ -1,0 +1,48 @@
+.overlayContainer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.cropBox {
+  position: absolute;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.65);
+  box-sizing: border-box;
+  cursor: move;
+}
+
+/* Grid lines inside the crop box (rule of thirds) */
+.gridLineH1, .gridLineH2, .gridLineV1, .gridLineV2 {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+}
+
+.gridLineH1 { top: 33.33%; left: 0; width: 100%; height: 1px; }
+.gridLineH2 { top: 66.66%; left: 0; width: 100%; height: 1px; }
+.gridLineV1 { left: 33.33%; top: 0; height: 100%; width: 1px; }
+.gridLineV2 { left: 66.66%; top: 0; height: 100%; width: 1px; }
+
+/* Drag handles */
+.handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+.handleTL { top: -5px; left: -5px; cursor: nwse-resize; }
+.handleTR { top: -5px; right: -5px; cursor: nesw-resize; }
+.handleBL { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.handleBR { bottom: -5px; right: -5px; cursor: nwse-resize; }
