@@ -4,6 +4,7 @@ import { Play, Image, Crop, Sliders, RefreshCw, Plus, Trash2, ChevronDown, Chevr
 
 //Imports
 import { useImageStore } from "@renderer/Lib/hooks/useImageStore"
+import { useToastStore } from "@renderer/Lib/hooks/useToastStore"
 import styles from "./Pipeline.module.css"
 
 //Types
@@ -22,6 +23,8 @@ const Pipeline = () => {
     updateOutputConversion
   } = useImageStore()
 
+  let { addToast } = useToastStore()
+
   const currentImage = images.find((img) => img.path === selectedImagePath)
   const [expandedOutputs, setExpandedOutputs] = useState<Record<string, boolean>>({})
 
@@ -39,23 +42,36 @@ const Pipeline = () => {
       })
 
       if (result && result.success) {
-        alert(`Imagens exportadas com sucesso!\nSalvas na pasta criada em: ${destDir}`)
+        let message = "Imagens exportadas com sucesso!"
+        if (result.files && result.files.length === 1) {
+          message += `\nSalva em: ${result.files[0]}`
+        } else if (result.outputFolder && result.outputFolder !== destDir) {
+          message += `\nSalvas na pasta criada em: ${result.outputFolder}`
+        } else {
+          message += `\nSalvas em: ${destDir}`
+        }
+        addToast(message, "success")
       } else {
-        alert("Erro ao processar e exportar as imagens:\n" + (result?.error || "Erro desconhecido"))
+        addToast("Erro ao processar e exportar as imagens:\n" + (result?.error || "Erro desconhecido"), "error")
       }
     } catch (error) {
       console.error("Export error:", error)
-      alert("Erro na exportação: " + error)
+      addToast("Erro na exportação: " + error, "error")
     }
   }
 
   function handleWidthChange(outputId: string, val: number) {
     if (!currentImage) return
-    const output = currentImage.outputs.find((out) => out.id === outputId)
+    let output = currentImage.outputs.find((out) => out.id === outputId)
     if (!output) return
-    const updates: Partial<ResizeSettings> = { width: val }
+    let updates: Partial<ResizeSettings> = { width: val }
     if (output.resize?.keepAspectRatio && currentImage.metadata) {
-      const ratio = currentImage.metadata.width / currentImage.metadata.height
+      let ratio = currentImage.metadata.width / currentImage.metadata.height
+      if (currentImage.crop) {
+        let cropW = (currentImage.crop.width / 100) * currentImage.metadata.width
+        let cropH = (currentImage.crop.height / 100) * currentImage.metadata.height
+        ratio = cropW / cropH
+      }
       updates.height = Math.round(val / ratio)
     }
     updateOutputResize(currentImage.path, outputId, updates)
@@ -63,11 +79,16 @@ const Pipeline = () => {
 
   function handleHeightChange(outputId: string, val: number) {
     if (!currentImage) return
-    const output = currentImage.outputs.find((out) => out.id === outputId)
+    let output = currentImage.outputs.find((out) => out.id === outputId)
     if (!output) return
-    const updates: Partial<ResizeSettings> = { height: val }
+    let updates: Partial<ResizeSettings> = { height: val }
     if (output.resize?.keepAspectRatio && currentImage.metadata) {
-      const ratio = currentImage.metadata.width / currentImage.metadata.height
+      let ratio = currentImage.metadata.width / currentImage.metadata.height
+      if (currentImage.crop) {
+        let cropW = (currentImage.crop.width / 100) * currentImage.metadata.width
+        let cropH = (currentImage.crop.height / 100) * currentImage.metadata.height
+        ratio = cropW / cropH
+      }
       updates.width = Math.round(val * ratio)
     }
     updateOutputResize(currentImage.path, outputId, updates)
@@ -192,7 +213,21 @@ const Pipeline = () => {
                             <input
                               type="checkbox"
                               checked={output.resize.enabled}
-                              onChange={(e) => updateOutputResize(currentImage.path, output.id, { enabled: e.target.checked })}
+                              onChange={(e) => {
+                                let enabled = e.target.checked
+                                let updates: any = { enabled }
+                                if (enabled && currentImage.metadata) {
+                                  let w = currentImage.metadata.width
+                                  let h = currentImage.metadata.height
+                                  if (currentImage.crop) {
+                                    w = Math.round((currentImage.crop.width / 100) * currentImage.metadata.width)
+                                    h = Math.round((currentImage.crop.height / 100) * currentImage.metadata.height)
+                                  }
+                                  updates.width = w
+                                  updates.height = h
+                                }
+                                updateOutputResize(currentImage.path, output.id, updates)
+                              }}
                             />
                             <span>Ativar</span>
                           </label>
@@ -211,17 +246,6 @@ const Pipeline = () => {
                                 <option value="percentage">Porcentagem (%)</option>
                               </select>
                             </div>
-
-                            {["ico", "icns"].includes(output.conversion.format) && (
-                              <label className={styles.checkboxRow} style={{ marginTop: 2 }}>
-                                <input
-                                  type="checkbox"
-                                  checked={output.conversion.generateAllSizes || false}
-                                  onChange={(e) => updateOutputConversion(currentImage.path, output.id, { generateAllSizes: e.target.checked })}
-                                />
-                                <span>Gerar todos os tamanhos de ícone de app</span>
-                              </label>
-                            )}
 
                             {output.resize.mode === "pixels" ? (
                               <>
@@ -309,6 +333,17 @@ const Pipeline = () => {
                                 <option value="icns">macOS Icon (.icns)</option>
                               </select>
                             </div>
+
+                            {["ico", "icns"].includes(output.conversion.format) && (
+                              <label className={styles.checkboxRow} style={{ marginTop: 2 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={output.conversion.generateAllSizes || false}
+                                  onChange={(e) => updateOutputConversion(currentImage.path, output.id, { generateAllSizes: e.target.checked })}
+                                />
+                                <span>Gerar todos os tamanhos de ícone de app</span>
+                              </label>
+                            )}
 
                             {["jpg", "webp"].includes(output.conversion.format) && (
                               <div className={styles.sliderGroup}>

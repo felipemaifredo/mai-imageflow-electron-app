@@ -144,7 +144,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle("export-image", async (_, options: any) => {
     try {
-      const { filePath, crop, outputs, destDir } = options
+      let { filePath, crop, outputs, destDir } = options
+      let exportedFiles: string[] = []
       
       const meta = await sharp(filePath).metadata()
       const origW = meta.width || 1
@@ -217,70 +218,99 @@ app.whenReady().then(() => {
         const generateAll = output.conversion && output.conversion.enabled && output.conversion.generateAllSizes
 
         if (generateAll) {
-          const iconSizes = [16, 32, 48, 256, 512, 1024]
+          let iconSizes = [16, 32, 48, 256, 512, 1024]
           
-          // Generate individual sizes in the target format (ico or icns)
-          for (const s of iconSizes) {
-            const sizePath = path.join(formatFolder, `${baseName}_${cleanName}_${s}.${outputFormat}`)
+          for (let s of iconSizes) {
+            // ICO only supports sizes up to 256px
+            if (outputFormat === "ico" && s > 256) {
+              continue
+            }
+
+            let sizePath = path.join(formatFolder, `${baseName}_${cleanName}_${s}.${outputFormat}`)
             
             if (outputFormat === "ico") {
-              const pngBuffer = await sharpInstance.clone().resize(s, s).png().toBuffer()
-              const icoBuffer = await pngToIcoFn(pngBuffer)
-              fs.writeFileSync(sizePath, icoBuffer)
-            } else if (outputFormat === "icns") {
-              const tmpDir = path.join(app.getPath("temp"), `imageflow_icns_tmp_size_${s}_${Date.now()}`)
-              fs.mkdirSync(tmpDir, { recursive: true })
-              
-              const tmpPngPath = path.join(tmpDir, "icon.png")
-              await sharpInstance.clone().resize(s, s).png().toFile(tmpPngPath)
-              await icongenFn(tmpPngPath, tmpDir, { report: false })
-              
-              const generatedPath = path.join(tmpDir, "app.icns")
-              if (fs.existsSync(generatedPath)) {
-                fs.copyFileSync(generatedPath, sizePath)
-              }
               try {
-                fs.rmSync(tmpDir, { recursive: true, force: true })
+                let pngBuffer = await sharpInstance.clone().resize(s, s).png().toBuffer()
+                let icoBuffer = await pngToIcoFn(pngBuffer)
+                fs.writeFileSync(sizePath, icoBuffer)
+                exportedFiles.push(sizePath)
               } catch (e) {
-                // ignore
+                console.error(`Failed to generate individual ICO size ${s}:`, (e as any).message)
               }
-            }
-          }
-
-          // Generate custom size in the target format if enabled
-          if (output.resize.enabled) {
-            const isStandardIconSize = targetW === targetH && iconSizes.includes(targetW)
-            if (!isStandardIconSize) {
-              const customPath = path.join(formatFolder, `${baseName}_${cleanName}_custom_${targetW}x${targetH}.${outputFormat}`)
-              
-              if (outputFormat === "ico") {
-                const pngBuffer = await sharpInstance.clone().resize({
-                  width: targetW,
-                  height: targetH,
-                  fit: output.resize.keepAspectRatio ? "contain" : "fill"
-                }).png().toBuffer()
-                const icoBuffer = await pngToIcoFn(pngBuffer)
-                fs.writeFileSync(customPath, icoBuffer)
-              } else if (outputFormat === "icns") {
-                const tmpDir = path.join(app.getPath("temp"), `imageflow_icns_tmp_custom_${Date.now()}`)
+            } else if (outputFormat === "icns") {
+              try {
+                let tmpDir = path.join(app.getPath("temp"), `imageflow_icns_tmp_size_${s}_${Date.now()}`)
                 fs.mkdirSync(tmpDir, { recursive: true })
                 
-                const tmpPngPath = path.join(tmpDir, "icon.png")
-                await sharpInstance.clone().resize({
-                  width: targetW,
-                  height: targetH,
-                  fit: output.resize.keepAspectRatio ? "contain" : "fill"
-                }).png().toFile(tmpPngPath)
+                let tmpPngPath = path.join(tmpDir, "icon.png")
+                await sharpInstance.clone().resize(s, s).png().toFile(tmpPngPath)
                 await icongenFn(tmpPngPath, tmpDir, { report: false })
                 
-                const generatedPath = path.join(tmpDir, "app.icns")
+                let generatedPath = path.join(tmpDir, "app.icns")
                 if (fs.existsSync(generatedPath)) {
-                  fs.copyFileSync(generatedPath, customPath)
+                  fs.copyFileSync(generatedPath, sizePath)
+                  exportedFiles.push(sizePath)
                 }
                 try {
                   fs.rmSync(tmpDir, { recursive: true, force: true })
                 } catch (e) {
                   // ignore
+                }
+              } catch (e) {
+                console.error(`Failed to generate individual ICNS size ${s}:`, (e as any).message)
+              }
+            }
+          }
+
+          // Generate custom size if enabled
+          if (output.resize.enabled) {
+            let isStandardIconSize = targetW === targetH && iconSizes.includes(targetW)
+            if (!isStandardIconSize) {
+              let isIcoValidSize = outputFormat === "ico" && targetW <= 256 && targetH <= 256
+              let isIcnsValidSize = outputFormat === "icns"
+
+              if (isIcoValidSize || isIcnsValidSize) {
+                let customPath = path.join(formatFolder, `${baseName}_${cleanName}_custom_${targetW}x${targetH}.${outputFormat}`)
+                
+                if (outputFormat === "ico") {
+                  try {
+                    let pngBuffer = await sharpInstance.clone().resize({
+                      width: targetW,
+                      height: targetH,
+                      fit: output.resize.keepAspectRatio ? "contain" : "fill"
+                    }).png().toBuffer()
+                    let icoBuffer = await pngToIcoFn(pngBuffer)
+                    fs.writeFileSync(customPath, icoBuffer)
+                    exportedFiles.push(customPath)
+                  } catch (e) {
+                    console.error("Failed to generate custom ICO:", (e as any).message)
+                  }
+                } else if (outputFormat === "icns") {
+                  try {
+                    let tmpDir = path.join(app.getPath("temp"), `imageflow_icns_tmp_custom_${Date.now()}`)
+                    fs.mkdirSync(tmpDir, { recursive: true })
+                    
+                    let tmpPngPath = path.join(tmpDir, "icon.png")
+                    await sharpInstance.clone().resize({
+                      width: targetW,
+                      height: targetH,
+                      fit: output.resize.keepAspectRatio ? "contain" : "fill"
+                    }).png().toFile(tmpPngPath)
+                    await icongenFn(tmpPngPath, tmpDir, { report: false })
+                    
+                    let generatedPath = path.join(tmpDir, "app.icns")
+                    if (fs.existsSync(generatedPath)) {
+                      fs.copyFileSync(generatedPath, customPath)
+                      exportedFiles.push(customPath)
+                    }
+                    try {
+                      fs.rmSync(tmpDir, { recursive: true, force: true })
+                    } catch (e) {
+                      // ignore
+                    }
+                  } catch (e) {
+                    console.error("Failed to generate custom ICNS:", (e as any).message)
+                  }
                 }
               }
             }
@@ -288,23 +318,25 @@ app.whenReady().then(() => {
 
           // Generate main multi-resolution icon container file
           if (outputFormat === "ico") {
-            const icoSizes = [16, 32, 48, 256]
-            const pngBuffers = await Promise.all(
+            let icoSizes = [16, 32, 48, 256]
+            let pngBuffers = await Promise.all(
               icoSizes.map((size) => sharpInstance.clone().resize(size, size).png().toBuffer())
             )
-            const icoBuffer = await pngToIcoFn(pngBuffers)
+            let icoBuffer = await pngToIcoFn(pngBuffers)
             fs.writeFileSync(outputPath, icoBuffer)
+            exportedFiles.push(outputPath)
           } else if (outputFormat === "icns") {
-            const tmpDir = path.join(app.getPath("temp"), `imageflow_icns_tmp_${Date.now()}`)
+            let tmpDir = path.join(app.getPath("temp"), `imageflow_icns_tmp_${Date.now()}`)
             fs.mkdirSync(tmpDir, { recursive: true })
             
-            const tmpPngPath = path.join(tmpDir, "icon.png")
+            let tmpPngPath = path.join(tmpDir, "icon.png")
             await sharpInstance.clone().resize(512, 512).png().toFile(tmpPngPath)
             await icongenFn(tmpPngPath, tmpDir, { report: false })
             
-            const generatedPath = path.join(tmpDir, "app.icns")
+            let generatedPath = path.join(tmpDir, "app.icns")
             if (fs.existsSync(generatedPath)) {
               fs.copyFileSync(generatedPath, outputPath)
+              exportedFiles.push(outputPath)
             }
             try {
               fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -317,25 +349,26 @@ app.whenReady().then(() => {
 
         // Standard Single Icon Export (generateAllSizes === false)
         if (outputFormat === "ico") {
-          const w = output.resize.enabled ? targetW : 256
-          const h = output.resize.enabled ? targetH : 256
-          const pngBuffer = await sharpInstance.resize({
+          let w = output.resize.enabled ? targetW : 256
+          let h = output.resize.enabled ? targetH : 256
+          let pngBuffer = await sharpInstance.resize({
             width: w,
             height: h,
             fit: output.resize.keepAspectRatio ? "contain" : "fill"
           }).png().toBuffer()
-          const icoBuffer = await pngToIcoFn(pngBuffer)
+          let icoBuffer = await pngToIcoFn(pngBuffer)
           fs.writeFileSync(outputPath, icoBuffer)
+          exportedFiles.push(outputPath)
           continue
         }
 
         if (outputFormat === "icns") {
-          const w = output.resize.enabled ? targetW : 512
-          const h = output.resize.enabled ? targetH : 512
-          const tmpDir = path.join(app.getPath("temp"), `imageflow_icns_tmp_${Date.now()}`)
+          let w = output.resize.enabled ? targetW : 512
+          let h = output.resize.enabled ? targetH : 512
+          let tmpDir = path.join(app.getPath("temp"), `imageflow_icns_tmp_${Date.now()}`)
           fs.mkdirSync(tmpDir, { recursive: true })
           
-          const tmpPngPath = path.join(tmpDir, "icon.png")
+          let tmpPngPath = path.join(tmpDir, "icon.png")
           await sharpInstance.resize({
             width: w,
             height: h,
@@ -343,9 +376,10 @@ app.whenReady().then(() => {
           }).png().toFile(tmpPngPath)
           await icongenFn(tmpPngPath, tmpDir, { report: false })
           
-          const generatedPath = path.join(tmpDir, "app.icns")
+          let generatedPath = path.join(tmpDir, "app.icns")
           if (fs.existsSync(generatedPath)) {
             fs.copyFileSync(generatedPath, outputPath)
+            exportedFiles.push(outputPath)
           }
           
           try {
@@ -375,9 +409,10 @@ app.whenReady().then(() => {
         }
 
         await formatInstance.toFile(outputPath)
+        exportedFiles.push(outputPath)
       }
 
-      return { success: true }
+      return { success: true, files: exportedFiles, outputFolder }
     } catch (error: any) {
       console.error("Export failed:", error)
       return { success: false, error: error.message || String(error) }

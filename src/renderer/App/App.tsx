@@ -3,6 +3,7 @@ import TitleBar from "../ui/components/TitleBar/TitleBar"
 import Sidebar from "../ui/components/Sidebar/Sidebar"
 import PreviewArea from "../ui/components/PreviewArea/PreviewArea"
 import Pipeline from "../ui/components/Pipeline/Pipeline"
+import ToastContainer from "../ui/components/Toast/ToastContainer"
 import styles from "./App.module.css"
 
 //Main
@@ -21,6 +22,7 @@ const App = () => {
           <Pipeline />
         </aside>
       </div>
+      <ToastContainer />
     </div>
   )
 }

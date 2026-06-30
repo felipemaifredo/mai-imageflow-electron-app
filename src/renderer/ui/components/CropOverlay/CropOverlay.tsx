@@ -34,18 +34,20 @@ const CropOverlay = () => {
   const crop = imageFile.crop || { x: 10, y: 10, width: 80, height: 80 }
   const aspect = cropAspect
   const ratio = getAspectValue(aspect)
+  const meta = imageFile.metadata
+  const imageAspect = meta ? meta.width / meta.height : 1
 
   useEffect(() => {
     if (ratio) {
       let newW = crop.width
-      let newH = crop.width / ratio
+      let newH = (crop.width * imageAspect) / ratio
       if (newH > 100 - crop.y) {
         newH = 100 - crop.y
-        newW = newH * ratio
+        newW = (newH * ratio) / imageAspect
       }
       if (newW > 100 - crop.x) {
         newW = 100 - crop.x
-        newH = newW / ratio
+        newH = (newW * imageAspect) / ratio
       }
       updateImageCrop(filePath, {
         x: crop.x,
@@ -78,13 +80,13 @@ const CropOverlay = () => {
 
   function handleMouseMove(e: MouseEvent) {
     if (!dragInfo.current || !containerRef.current) return
-    const containerRect = containerRef.current.getBoundingClientRect()
-    const dx = ((e.clientX - dragInfo.current.startX) / containerRect.width) * 100
-    const dy = ((e.clientY - dragInfo.current.startY) / containerRect.height) * 100
-    const start = dragInfo.current.startCrop
-    const type = dragInfo.current.type
+    let containerRect = containerRef.current.getBoundingClientRect()
+    let dx = ((e.clientX - dragInfo.current.startX) / containerRect.width) * 100
+    let dy = ((e.clientY - dragInfo.current.startY) / containerRect.height) * 100
+    let start = dragInfo.current.startCrop
+    let type = dragInfo.current.type
 
-    const nextCrop = { ...start }
+    let nextCrop = { ...start }
 
     if (type === "move") {
       nextCrop.x = Math.max(0, Math.min(100 - start.width, start.x + dx))
@@ -93,26 +95,26 @@ const CropOverlay = () => {
       if (type === "br") {
         nextCrop.width = Math.max(5, Math.min(100 - start.x, start.width + dx))
         if (ratio) {
-          nextCrop.height = nextCrop.width / ratio
+          nextCrop.height = (nextCrop.width * imageAspect) / ratio
           if (nextCrop.y + nextCrop.height > 100) {
             nextCrop.height = 100 - nextCrop.y
-            nextCrop.width = nextCrop.height * ratio
+            nextCrop.width = (nextCrop.height * ratio) / imageAspect
           }
         } else {
           nextCrop.height = Math.max(5, Math.min(100 - start.y, start.height + dy))
         }
       } else if (type === "bl") {
-        const proposedWidth = start.width - dx
-        const proposedX = start.x + dx
+        let proposedWidth = start.width - dx
+        let proposedX = start.x + dx
         if (proposedX >= 0 && proposedWidth >= 5) {
           nextCrop.x = proposedX
           nextCrop.width = proposedWidth
         }
         if (ratio) {
-          nextCrop.height = nextCrop.width / ratio
+          nextCrop.height = (nextCrop.width * imageAspect) / ratio
           if (nextCrop.y + nextCrop.height > 100) {
             nextCrop.height = 100 - nextCrop.y
-            nextCrop.width = nextCrop.height * ratio
+            nextCrop.width = (nextCrop.height * ratio) / imageAspect
             nextCrop.x = start.x + (start.width - nextCrop.width)
           }
         } else {
@@ -120,25 +122,25 @@ const CropOverlay = () => {
         }
       } else if (type === "tr") {
         nextCrop.width = Math.max(5, Math.min(100 - start.x, start.width + dx))
-        const proposedHeight = start.height - dy
-        const proposedY = start.y + dy
+        let proposedHeight = start.height - dy
+        let proposedY = start.y + dy
         if (proposedY >= 0 && proposedHeight >= 5) {
           nextCrop.y = proposedY
           nextCrop.height = proposedHeight
         }
         if (ratio) {
-          nextCrop.width = nextCrop.height * ratio
+          nextCrop.width = (nextCrop.height * ratio) / imageAspect
           if (nextCrop.x + nextCrop.width > 100) {
             nextCrop.width = 100 - nextCrop.x
-            nextCrop.height = nextCrop.width / ratio
+            nextCrop.height = (nextCrop.width * imageAspect) / ratio
             nextCrop.y = start.y + (start.height - nextCrop.height)
           }
         }
       } else if (type === "tl") {
-        const proposedWidth = start.width - dx
-        const proposedX = start.x + dx
-        const proposedHeight = start.height - dy
-        const proposedY = start.y + dy
+        let proposedWidth = start.width - dx
+        let proposedX = start.x + dx
+        let proposedHeight = start.height - dy
+        let proposedY = start.y + dy
 
         if (proposedX >= 0 && proposedWidth >= 5 && proposedY >= 0 && proposedHeight >= 5) {
           nextCrop.x = proposedX
@@ -147,11 +149,11 @@ const CropOverlay = () => {
           nextCrop.height = proposedHeight
         }
         if (ratio) {
-          if (nextCrop.width / nextCrop.height > ratio) {
-            nextCrop.width = nextCrop.height * ratio
+          if (nextCrop.width / nextCrop.height > ratio / imageAspect) {
+            nextCrop.width = (nextCrop.height * ratio) / imageAspect
             nextCrop.x = start.x + (start.width - nextCrop.width)
           } else {
-            nextCrop.height = nextCrop.width / ratio
+            nextCrop.height = (nextCrop.width * imageAspect) / ratio
             nextCrop.y = start.y + (start.height - nextCrop.height)
           }
         }
