@@ -147,14 +147,22 @@ app.whenReady().then(() => {
       let { filePath, crop, outputs, destDir } = options
       let exportedFiles: string[] = []
       
+      console.log(`[EXPORT] Starting export-image handler. filePath: "${filePath}", destDir: "${destDir}"`)
+      console.log(`[EXPORT] Outputs configurados:`, JSON.stringify(outputs, null, 2))
+
       const meta = await sharp(filePath).metadata()
       const origW = meta.width || 1
       const origH = meta.height || 1
       
       const baseName = path.basename(filePath, path.extname(filePath))
       
-      const hasMultipleOutputs = outputs.length > 1
-      const hasIconAllSizes = outputs.some((out: any) => out.conversion && out.conversion.enabled && out.conversion.generateAllSizes)
+      let hasMultipleOutputs = outputs.length > 1
+      const hasIconAllSizes = outputs.some((out: any) => 
+        out.conversion && 
+        out.conversion.enabled && 
+        out.conversion.generateAllSizes &&
+        ["ico", "icns"].includes(out.conversion.format)
+      )
       const useSubfolders = hasMultipleOutputs || hasIconAllSizes
 
       let outputFolder = destDir
@@ -162,6 +170,7 @@ app.whenReady().then(() => {
         outputFolder = path.join(destDir, baseName)
         if (!fs.existsSync(outputFolder)) {
           fs.mkdirSync(outputFolder, { recursive: true })
+          console.log(`[EXPORT] Created base subfolder: ${outputFolder}`)
         }
       }
 
@@ -195,6 +204,7 @@ app.whenReady().then(() => {
           const top = Math.max(0, Math.min(origH - 1, Math.round((crop.y / 100) * origH)))
           const width = Math.max(1, Math.min(origW - left, Math.round((crop.width / 100) * origW)))
           const height = Math.max(1, Math.min(origH - top, Math.round((crop.height / 100) * origH)))
+          console.log(`[EXPORT] Extracting crop bounds - left: ${left}, top: ${top}, w: ${width}, h: ${height}`)
           sharpInstance = sharpInstance.extract({ left, top, width, height })
         }
 
@@ -206,6 +216,7 @@ app.whenReady().then(() => {
           formatFolder = path.join(outputFolder, outputFormat)
           if (!fs.existsSync(formatFolder)) {
             fs.mkdirSync(formatFolder, { recursive: true })
+            console.log(`[EXPORT] Created format subfolder: ${formatFolder}`)
           }
         }
 
@@ -215,14 +226,24 @@ app.whenReady().then(() => {
           : `${baseName}_${cleanName}.${outputFormat}`
         const outputPath = path.join(formatFolder, outFileName)
 
-        const generateAll = output.conversion && output.conversion.enabled && output.conversion.generateAllSizes
+        console.log(`[EXPORT] Target format: ${outputFormat}, Target output path: ${outputPath}`)
+
+        const generateAll = output.conversion && 
+                            output.conversion.enabled && 
+                            output.conversion.generateAllSizes &&
+                            ["ico", "icns"].includes(outputFormat)
 
         if (generateAll) {
           let iconSizes = [16, 32, 48, 256, 512, 1024]
+          console.log(`[EXPORT] Generating ALL sizes for format ${outputFormat}...`)
           
           for (let s of iconSizes) {
             // ICO only supports sizes up to 256px
             if (outputFormat === "ico" && s > 256) {
+              continue
+            }
+            // ICNS does not support 48px size
+            if (outputFormat === "icns" && s === 48) {
               continue
             }
 
@@ -233,9 +254,10 @@ app.whenReady().then(() => {
                 let pngBuffer = await sharpInstance.clone().resize(s, s).png().toBuffer()
                 let icoBuffer = await pngToIcoFn(pngBuffer)
                 fs.writeFileSync(sizePath, icoBuffer)
+                console.log(`[EXPORT] Wrote individual ICO size ${s}: ${sizePath}`)
                 exportedFiles.push(sizePath)
               } catch (e) {
-                console.error(`Failed to generate individual ICO size ${s}:`, (e as any).message)
+                console.error(`[EXPORT] Failed to generate individual ICO size ${s}:`, (e as any).message)
               }
             } else if (outputFormat === "icns") {
               try {
@@ -244,12 +266,19 @@ app.whenReady().then(() => {
                 
                 let tmpPngPath = path.join(tmpDir, "icon.png")
                 await sharpInstance.clone().resize(s, s).png().toFile(tmpPngPath)
-                await icongenFn(tmpPngPath, tmpDir, { report: false })
+                await icongenFn(tmpPngPath, tmpDir, { 
+                  report: false,
+                  ico: { name: "app", sizes: [] },
+                  icns: { name: "app", sizes: [s] }
+                })
                 
                 let generatedPath = path.join(tmpDir, "app.icns")
                 if (fs.existsSync(generatedPath)) {
                   fs.copyFileSync(generatedPath, sizePath)
+                  console.log(`[EXPORT] Wrote individual ICNS size ${s}: ${sizePath}`)
                   exportedFiles.push(sizePath)
+                } else {
+                  console.warn(`[EXPORT] Individual ICNS not found at: ${generatedPath}`)
                 }
                 try {
                   fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -257,7 +286,7 @@ app.whenReady().then(() => {
                   // ignore
                 }
               } catch (e) {
-                console.error(`Failed to generate individual ICNS size ${s}:`, (e as any).message)
+                console.error(`[EXPORT] Failed to generate individual ICNS size ${s}:`, (e as any).message)
               }
             }
           }
@@ -281,9 +310,10 @@ app.whenReady().then(() => {
                     }).png().toBuffer()
                     let icoBuffer = await pngToIcoFn(pngBuffer)
                     fs.writeFileSync(customPath, icoBuffer)
+                    console.log(`[EXPORT] Wrote custom ICO ${targetW}x${targetH}: ${customPath}`)
                     exportedFiles.push(customPath)
                   } catch (e) {
-                    console.error("Failed to generate custom ICO:", (e as any).message)
+                    console.error("[EXPORT] Failed to generate custom ICO:", (e as any).message)
                   }
                 } else if (outputFormat === "icns") {
                   try {
@@ -296,11 +326,16 @@ app.whenReady().then(() => {
                       height: targetH,
                       fit: output.resize.keepAspectRatio ? "contain" : "fill"
                     }).png().toFile(tmpPngPath)
-                    await icongenFn(tmpPngPath, tmpDir, { report: false })
+                    await icongenFn(tmpPngPath, tmpDir, { 
+                      report: false,
+                      ico: { name: "app", sizes: [] },
+                      icns: { name: "app", sizes: [16, 32, 64, 128, 256, 512, 1024] }
+                    })
                     
                     let generatedPath = path.join(tmpDir, "app.icns")
                     if (fs.existsSync(generatedPath)) {
                       fs.copyFileSync(generatedPath, customPath)
+                      console.log(`[EXPORT] Wrote custom ICNS ${targetW}x${targetH}: ${customPath}`)
                       exportedFiles.push(customPath)
                     }
                     try {
@@ -309,7 +344,7 @@ app.whenReady().then(() => {
                       // ignore
                     }
                   } catch (e) {
-                    console.error("Failed to generate custom ICNS:", (e as any).message)
+                    console.error("[EXPORT] Failed to generate custom ICNS:", (e as any).message)
                   }
                 }
               }
@@ -324,6 +359,7 @@ app.whenReady().then(() => {
             )
             let icoBuffer = await pngToIcoFn(pngBuffers)
             fs.writeFileSync(outputPath, icoBuffer)
+            console.log(`[EXPORT] Wrote main ICO container to: ${outputPath}`)
             exportedFiles.push(outputPath)
           } else if (outputFormat === "icns") {
             let tmpDir = path.join(app.getPath("temp"), `imageflow_icns_tmp_${Date.now()}`)
@@ -331,12 +367,19 @@ app.whenReady().then(() => {
             
             let tmpPngPath = path.join(tmpDir, "icon.png")
             await sharpInstance.clone().resize(512, 512).png().toFile(tmpPngPath)
-            await icongenFn(tmpPngPath, tmpDir, { report: false })
+            await icongenFn(tmpPngPath, tmpDir, { 
+              report: false,
+              ico: { name: "app", sizes: [] },
+              icns: { name: "app", sizes: [16, 32, 64, 128, 256, 512, 1024] }
+            })
             
             let generatedPath = path.join(tmpDir, "app.icns")
             if (fs.existsSync(generatedPath)) {
               fs.copyFileSync(generatedPath, outputPath)
+              console.log(`[EXPORT] Wrote main ICNS container to: ${outputPath}`)
               exportedFiles.push(outputPath)
+            } else {
+              throw new Error("icon-gen failed to produce main app.icns container file")
             }
             try {
               fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -358,6 +401,7 @@ app.whenReady().then(() => {
           }).png().toBuffer()
           let icoBuffer = await pngToIcoFn(pngBuffer)
           fs.writeFileSync(outputPath, icoBuffer)
+          console.log(`[EXPORT] Wrote standard single ICO: ${outputPath}`)
           exportedFiles.push(outputPath)
           continue
         }
@@ -374,12 +418,19 @@ app.whenReady().then(() => {
             height: h,
             fit: output.resize.keepAspectRatio ? "contain" : "fill"
           }).png().toFile(tmpPngPath)
-          await icongenFn(tmpPngPath, tmpDir, { report: false })
+          await icongenFn(tmpPngPath, tmpDir, { 
+            report: false,
+            ico: { name: "app", sizes: [] },
+            icns: { name: "app", sizes: [16, 32, 64, 128, 256, 512, 1024] }
+          })
           
           let generatedPath = path.join(tmpDir, "app.icns")
           if (fs.existsSync(generatedPath)) {
             fs.copyFileSync(generatedPath, outputPath)
+            console.log(`[EXPORT] Wrote standard single ICNS: ${outputPath}`)
             exportedFiles.push(outputPath)
+          } else {
+            throw new Error("icon-gen failed to produce standard single app.icns file")
           }
           
           try {
@@ -408,13 +459,16 @@ app.whenReady().then(() => {
           formatInstance = formatInstance.png()
         }
 
+        console.log(`[EXPORT] Writing standard image: ${outputPath}`)
         await formatInstance.toFile(outputPath)
+        console.log(`[EXPORT] Standard image written successfully. Exists: ${fs.existsSync(outputPath)}. Size: ${fs.statSync(outputPath).size} bytes`)
         exportedFiles.push(outputPath)
       }
 
+      console.log(`[EXPORT] Finished export successfully. Total files written: ${exportedFiles.length}`)
       return { success: true, files: exportedFiles, outputFolder }
     } catch (error: any) {
-      console.error("Export failed:", error)
+      console.error("[EXPORT] Export failed with error:", error)
       return { success: false, error: error.message || String(error) }
     }
   })

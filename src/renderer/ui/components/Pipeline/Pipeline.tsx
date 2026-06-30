@@ -8,7 +8,7 @@ import { useToastStore } from "@renderer/Lib/hooks/useToastStore"
 import styles from "./Pipeline.module.css"
 
 //Types
-import type { ResizeSettings } from "@renderer/Lib/hooks/useImageStore"
+import type { ResizeSettings, ConversionSettings } from "@renderer/Lib/hooks/useImageStore"
 
 //Main
 const Pipeline = () => {
@@ -324,7 +324,14 @@ const Pipeline = () => {
                               <select
                                 className={styles.select}
                                 value={output.conversion.format}
-                                onChange={(e) => updateOutputConversion(currentImage.path, output.id, { format: e.target.value as "png" | "jpg" | "webp" | "ico" | "icns" })}
+                                onChange={(e) => {
+                                  let newFormat = e.target.value as "png" | "jpg" | "webp" | "ico" | "icns"
+                                  let updates: Partial<ConversionSettings> = { format: newFormat }
+                                  if (!["ico", "icns"].includes(newFormat)) {
+                                    updates.generateAllSizes = false
+                                  }
+                                  updateOutputConversion(currentImage.path, output.id, updates)
+                                }}
                               >
                                 <option value="png">PNG (.png)</option>
                                 <option value="jpg">JPG (.jpg)</option>
